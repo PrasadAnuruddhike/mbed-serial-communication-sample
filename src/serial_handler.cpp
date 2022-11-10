@@ -63,6 +63,7 @@ void msg_check()
 
 void send_msg_acknowledgement(uint8_t com_ID)
 {
+    uint16_t _checksum = 0;
     uint8_t send_data[MSG_ACK_LENGTH];
     send_data[0]    =   HEADER;
     send_data[1]    =   COM_ID_ACK;
@@ -70,10 +71,12 @@ void send_msg_acknowledgement(uint8_t com_ID)
     send_data[3]    =   0x00;       // Length
     send_data[4]    =   com_ID;
     send_data[5]    =   0xFF;       // ACK Received: 0xFF, Task Pass: 0x01; Task Fail: 0x00
-    send_data[6]    =   0x45;       // Checksum
-    send_data[7]    =   0x31;       // Checksum
 
-    // wait_us(2000000);
+    _checksum = generate_checksum(send_data, (MSG_ACK_LENGTH - 2));
+    
+    send_data[6]    =   _checksum & 0xFF;
+    send_data[7]    =   _checksum >> 8;
+
     serial_port.write(send_data, MSG_ACK_LENGTH);
     ThisThread::sleep_for(200ms);
 }
@@ -117,6 +120,7 @@ int read_data_packet(uint8_t *receive_data)
 
 void task_led_check()
 {
+    uint16_t _checksum = 0;
     bool _task_status = false;
     uint8_t ack_packet[MSG_ACK_LENGTH];
 
@@ -139,10 +143,12 @@ void task_led_check()
     {
         ack_packet[5]    =   0x00;       // Task fail   
     }
-    ack_packet[6]    =   0x56;       // Checksum
-    ack_packet[7]    =   0x9F;       // Checksum
 
-    // wait_us(2000000);
+    _checksum = generate_checksum(ack_packet, (MSG_ACK_LENGTH - 2));
+    
+    ack_packet[6]    =   _checksum & 0xFF;
+    ack_packet[7]    =   _checksum >> 8;
+
     serial_port.write(ack_packet, MSG_ACK_LENGTH);
     ThisThread::sleep_for(200ms);
     // INFO("LED Task end");
@@ -232,16 +238,40 @@ void send_message()
 void send_who_am_i()
 {
     uint8_t send_data[MSG_WAMI_LENGTH];
+    uint16_t _checksum = 0;
 
     send_data[0]    =   HEADER;
     send_data[1]    =   COM_WHO_AM_I;
     send_data[2]    =   0x02;
     send_data[3]    =   0x00;
-    send_data[4]    =   0xFF;
-    send_data[5]    =   0xEE;
-    send_data[6]    =   0x34;
-    send_data[7]    =   0x0A;
+    send_data[4]    =   HEADER;
+    send_data[5]    =   HEADER;
 
-    wait_us(2000000);
+    _checksum = generate_checksum(send_data, (MSG_WAMI_LENGTH - 2));
+    
+    send_data[6]    =   _checksum & 0xFF;
+    send_data[7]    =   _checksum >> 8;
+
     serial_port.write(send_data, SERIAL_BUFFER_LENGTH);
+    ThisThread::sleep_for(500ms);
+}
+
+uint16_t generate_checksum(uint8_t *src_data, uint8_t src_data_len)
+{
+    /*
+        CRC-16/CCITT-FALSE format 
+    */
+    uint16_t crc = 0xFFFF;
+    uint16_t checksum;  
+
+    // Calculate Checksum  
+    for(int i = 0; i < src_data_len; i++){
+        crc= ((uint8_t)(crc >> 8) | (crc << 8))^src_data[i];
+        crc ^= (uint8_t)(crc & 0xFF) >>4;
+        crc ^= (crc << 12);
+        crc ^= ((crc & 0xFF) <<5);
+    }
+
+    checksum = crc;
+    return checksum;
 }

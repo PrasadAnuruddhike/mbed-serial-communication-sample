@@ -53,6 +53,9 @@ void send_msg_acknowledgement(uint8_t com_ID);
 void send_message();
 void send_who_am_i();
 
+uint16_t generate_checksum(uint8_t *src_data, uint8_t src_data_len);
+
+
 // move to different cpp
 void task_led_check();
 
