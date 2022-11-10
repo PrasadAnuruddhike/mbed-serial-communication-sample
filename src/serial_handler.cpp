@@ -32,6 +32,7 @@ void msg_check()
     int rxlen = 0;
     int _header = 0;
     int _commandID = 0;
+    bool _checksum_valid = false;
 
     if(msg_receive_flag == 1)
     {
@@ -46,11 +47,22 @@ void msg_check()
             if(_header == HEADER)
             {
                 // INFO("Header Received");
-                if(_commandID == COM_ID_LED_1_RED_CHECK)
+                printf("%d", rxlen);
+                // Checksum Validation
+                _checksum_valid = validate_checksum(read_buf, (rxlen - 2));
+
+                if(_checksum_valid)
                 {
-                    // INFO("Check LED 1 Red");
-                    send_msg_acknowledgement(_commandID);
-                    task_led_check();
+                    if(_commandID == COM_ID_LED_1_RED_CHECK)
+                    {
+                        // INFO("Check LED 1 Red");
+                        send_msg_acknowledgement(_commandID);
+                        task_led_check();
+                    }
+                }
+                else
+                {
+                    // INFO("Checksum Invalid");
                 }
             }
             else
@@ -274,4 +286,24 @@ uint16_t generate_checksum(uint8_t *src_data, uint8_t src_data_len)
 
     checksum = crc;
     return checksum;
+}
+
+bool validate_checksum(uint8_t *src_data, int src_data_len)
+{
+    bool result = false;
+    uint16_t checksum = 0;
+
+    checksum = generate_checksum(src_data, src_data_len);
+    printf("%4X", checksum);
+
+    if(((checksum & 0xFF) == src_data[src_data_len]) && ((checksum >> 8) == src_data[src_data_len + 1]))
+    {
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+
+    return result;
 }
