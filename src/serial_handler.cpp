@@ -15,7 +15,7 @@ uint8_t read_buf[SERIAL_BUFFER_LENGTH];
 
 void zhark_serial_init()
 {
-    INFO("Serial Initialization ..");
+    // INFO("Serial Initialization ..");
     serial_port.set_baud(SERIAL_BAUDRATE);
     serial_port.set_format(8, BufferedSerial::None, 1);
     // serial_port.sigio(callback(callback_serial));
@@ -29,20 +29,69 @@ void callback_serial()
 
 void msg_check()
 {
+    int rxlen = 0;
+    int _header = 0;
+    int _commandID = 0;
+
     if(msg_receive_flag == 1)
     {
-        read_data_packet();
+        rxlen = read_data_packet(read_buf);
+
+        if(rxlen > 0)
+        {
+            // INFO("RX_Len: %d", rxlen);
+            _header         = read_buf[0];
+            _commandID      = read_buf[1];
+
+            if(_header == HEADER)
+            {
+                // INFO("Header Received");
+                if(_commandID == COM_ID_LED_1_RED_CHECK)
+                {
+                    // INFO("Check LED 1 Red");
+                    send_msg_acknowledgement(_commandID);
+                    task_led_check();
+                }
+            }
+            else
+            {
+                // INFO("Invalid Command");
+            }
+        }
     }
 }
 
-void read_data_packet()
+void send_msg_acknowledgement(uint8_t com_ID)
 {
+    uint8_t send_data[MSG_ACK_LENGTH];
+    send_data[0]    =   HEADER;
+    send_data[1]    =   COM_ID_ACK;
+    send_data[2]    =   0x02;       // Length
+    send_data[3]    =   0x00;       // Length
+    send_data[4]    =   com_ID;
+    send_data[5]    =   0xFF;       // ACK Received: 0xFF, Task Pass: 0x01; Task Fail: 0x00
+    send_data[6]    =   0x45;       // Checksum
+    send_data[7]    =   0x31;       // Checksum
+
+    // wait_us(2000000);
+    serial_port.write(send_data, MSG_ACK_LENGTH);
+    ThisThread::sleep_for(200ms);
+}
+
+void decode_packet(uint8_t *receive_data)
+{
+
+}
+
+int read_data_packet(uint8_t *receive_data)
+{
+    int _rxlen = 0;
     if(serial_port.readable())
     {
         ThisThread::sleep_for(30ms);
-        memset(read_buf, '\0', SERIAL_BUFFER_LENGTH);
+        memset(receive_data, '\0', SERIAL_BUFFER_LENGTH);
 
-        serial_port.read(read_buf, SERIAL_BUFFER_LENGTH);
+        _rxlen = serial_port.read(receive_data, SERIAL_BUFFER_LENGTH);
 
         char trash[1];
         while(serial_port.readable())
@@ -50,6 +99,7 @@ void read_data_packet()
             serial_port.read(&trash, 1);
         }
 
+#ifdef PRINT_SERIAL_RX_BYTES
         printf("\n-------received data-----\n");
         for(int i = 0; i < SERIAL_BUFFER_LENGTH; i++)
         {
@@ -57,8 +107,45 @@ void read_data_packet()
         }
 
         printf("\n-------------------------\n");
+#endif  // PRINT_SERIAL_RX_BYTES
+
         msg_receive_flag = 0;
     }
+
+    return _rxlen;
+}
+
+void task_led_check()
+{
+    bool _task_status = false;
+    uint8_t ack_packet[MSG_ACK_LENGTH];
+
+    // INFO("LED Task start");
+    // ADD LED Test Task
+    ThisThread::sleep_for(5s);
+    _task_status = true;
+
+    ack_packet[0]    =   HEADER;
+    ack_packet[1]    =   COM_ID_ACK;
+    ack_packet[2]    =   0x02;       // Length
+    ack_packet[3]    =   0x00;       // Length
+    ack_packet[4]    =   COM_ID_LED_1_RED_CHECK;
+
+    if(_task_status)
+    {
+        ack_packet[5]    =   0x01;       // Task Pass    
+    }
+    else
+    {
+        ack_packet[5]    =   0x00;       // Task fail   
+    }
+    ack_packet[6]    =   0x56;       // Checksum
+    ack_packet[7]    =   0x9F;       // Checksum
+
+    // wait_us(2000000);
+    serial_port.write(ack_packet, MSG_ACK_LENGTH);
+    ThisThread::sleep_for(200ms);
+    // INFO("LED Task end");
 }
 
 // void msg_check()
@@ -136,7 +223,25 @@ void send_message()
     send_data[7]    =   0x0A;
 
 
-    ThisThread::sleep_for(5s);
+    // ThisThread::sleep_for(5s);
+    wait_us(2000000);
     serial_port.write(send_data, SERIAL_BUFFER_LENGTH);
     
-}   
+}
+
+void send_who_am_i()
+{
+    uint8_t send_data[MSG_WAMI_LENGTH];
+
+    send_data[0]    =   HEADER;
+    send_data[1]    =   COM_WHO_AM_I;
+    send_data[2]    =   0x02;
+    send_data[3]    =   0x00;
+    send_data[4]    =   0xFF;
+    send_data[5]    =   0xEE;
+    send_data[6]    =   0x34;
+    send_data[7]    =   0x0A;
+
+    wait_us(2000000);
+    serial_port.write(send_data, SERIAL_BUFFER_LENGTH);
+}

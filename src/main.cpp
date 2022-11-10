@@ -23,15 +23,18 @@
 #define ERR(x, ...)
 #endif
 
+DigitalOut led1(LED1);
 
 int main() 
 {
-
+  led1 = 1;
   zhark_serial_init();
+  // send_message();
+  send_who_am_i();
   
   while(1)
   {
     msg_check();
-    send_message();
+    // send_message();
   }
 }

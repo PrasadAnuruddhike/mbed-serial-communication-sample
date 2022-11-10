@@ -8,6 +8,4 @@
 
 #define SERIAL_BAUDRATE 230400
 
-
-
 #endif  // CONFIG_H

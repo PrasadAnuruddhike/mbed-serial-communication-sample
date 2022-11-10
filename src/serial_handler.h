@@ -26,11 +26,34 @@
 #endif
 
 
+/*
+    HEADER          1-byte          Default: 0xD9
+    COMMAND ID      1-byte          
+    LENGTH          2-bytes
+    PAYLOAD         n-bytes
+    CHECKSUM        2-bytes
+*/
+
+#define HEADER                                  (0xD6)      // 1 byte
+#define COM_WHO_AM_I                            (0x01)
+#define COM_ID_ACK                              (0x02)
+#define COM_ID_LED_1_RED_CHECK                  (0x03)  
+
+#define MSG_ACK_LENGTH                          8
+#define MSG_WAMI_LENGTH                         8
+
 void zhark_serial_init();
 void callback_serial();
 void msg_check();
-void read_data_packet();
+int read_data_packet(uint8_t *receive_data);
+void decode_packet(uint8_t *receive_data);
+
+void send_msg_acknowledgement(uint8_t com_ID);
 
 void send_message();
+void send_who_am_i();
+
+// move to different cpp
+void task_led_check();
 
 #endif // SERIAL_HANDLER_H
